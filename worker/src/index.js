@@ -15,20 +15,27 @@ export default {
     const url = new URL(request.url);
     const requestOrigin = request.headers.get("Origin");
     const configuredOrigin = env.ALLOWED_ORIGIN || "*";
-    const origin = configuredOrigin === "*" ? "*" : configuredOrigin;
+    const origin = configuredOrigin === "*"
+      ? "*"
+      : requestOrigin === configuredOrigin ? configuredOrigin : configuredOrigin;
 
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: {
       "access-control-allow-origin": origin,
       "access-control-allow-methods": "GET, OPTIONS",
       "access-control-allow-headers": "Content-Type"
     } });
-    if (configuredOrigin !== "*" && requestOrigin && requestOrigin !== configuredOrigin) {
-      return errorResponse("Origin is not allowed", 403, origin);
-    }
     if (request.method !== "GET") return errorResponse("Method Not Allowed", 405, origin);
 
+    if (url.pathname === "/") {
+      return json({
+        status: "running",
+        service: "workers-backend",
+        message: "Cloudflare Workers API is running",
+        api: "/api"
+      }, 200, origin);
+    }
     if (url.pathname === "/api") {
-      return json({ status: "running", service: "senka-api", endpoints: ["/api/course", "/api/hello?name=山田", "/api/fortune", "/api/events"] }, 200, origin);
+      return json({ status: "running", service: "workers-backend", endpoints: ["/api/course", "/api/hello?name=山田", "/api/fortune", "/api/events"] }, 200, origin);
     }
     if (url.pathname === "/api/course") {
       return json({ course: "IT", message: "Hello Workers", description: "Web技術とプログラミングを学ぶ学科です。" }, 200, origin);
