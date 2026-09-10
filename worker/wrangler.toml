@@ -1,0 +1,6 @@
+name = "senka-api"
+main = "src/index.js"
+compatibility_date = "2026-09-10"
+
+[vars]
+ALLOWED_ORIGIN = "*"

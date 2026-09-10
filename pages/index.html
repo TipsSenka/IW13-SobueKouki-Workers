@@ -1,11 +1,165 @@
 <!DOCTYPE html>
-<html lang="jp">
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>フロントエンド</title>
+    <title>Workers API Lab</title>
+    <style>
+        :root {
+            --ink: #17232b;
+            --muted: #64747b;
+            --paper: #f7f5ef;
+            --panel: #fffdf8;
+            --line: #d9ddd7;
+            --teal: #0d756d;
+            --teal-dark: #07534f;
+            --coral: #e46b4e;
+            --shadow: 0 18px 50px rgba(28, 52, 52, .12);
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            color: var(--ink);
+            background: var(--paper);
+            font-family: "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+        }
+        body::before {
+            position: fixed;
+            inset: 0 0 auto;
+            z-index: -1;
+            height: 440px;
+            content: "";
+            background: linear-gradient(130deg, #dbeee8, #f7f5ef 65%);
+            clip-path: polygon(0 0, 100% 0, 100% 77%, 0 100%);
+        }
+        .shell { width: min(1120px, calc(100% - 36px)); margin: 0 auto; }
+        header { padding: 46px 0 62px; }
+        .eyebrow {
+            display: inline-flex;
+            gap: 8px;
+            align-items: center;
+            margin: 0 0 16px;
+            color: var(--teal-dark);
+            font-size: .76rem;
+            font-weight: 700;
+            letter-spacing: .16em;
+        }
+        .eyebrow::before { width: 28px; height: 3px; background: var(--coral); content: ""; }
+        h1 { max-width: 700px; margin: 0; font-family: Georgia, serif; font-size: clamp(2.5rem, 6vw, 5.2rem); line-height: .98; letter-spacing: 0; }
+        .lead { max-width: 560px; margin: 24px 0 0; color: #496069; font-size: 1.05rem; line-height: 1.8; }
+        .layout { display: grid; grid-template-columns: 300px 1fr; gap: 28px; align-items: start; padding-bottom: 58px; }
+        .panel { border: 1px solid var(--line); border-radius: 8px; background: rgba(255, 253, 248, .9); box-shadow: var(--shadow); }
+        .settings { padding: 24px; position: sticky; top: 20px; }
+        label { display: block; margin-bottom: 8px; color: var(--muted); font-size: .78rem; font-weight: 700; }
+        input { width: 100%; border: 1px solid #b8c7c2; border-radius: 5px; background: #fff; color: var(--ink); font: inherit; padding: 12px; }
+        input:focus { outline: 3px solid rgba(13, 117, 109, .18); border-color: var(--teal); }
+        .hint { margin: 10px 0 0; color: var(--muted); font-size: .76rem; line-height: 1.6; }
+        .api-list { display: grid; gap: 14px; }
+        .api-card { display: grid; grid-template-columns: 112px 1fr auto; gap: 18px; align-items: center; padding: 19px 22px; border: 1px solid var(--line); border-left: 5px solid var(--teal); border-radius: 8px; background: var(--panel); box-shadow: 0 8px 24px rgba(28, 52, 52, .06); }
+        .method { color: var(--teal); font-family: monospace; font-size: .8rem; font-weight: 700; }
+        .path { margin: 4px 0 0; font-family: monospace; font-size: 1.05rem; }
+        .description { margin: 0; color: var(--muted); font-size: .86rem; }
+        button { border: 0; border-radius: 5px; padding: 11px 17px; color: #fff; background: var(--teal); cursor: pointer; font: inherit; font-weight: 700; white-space: nowrap; }
+        button:hover { background: var(--teal-dark); }
+        button:disabled { cursor: wait; opacity: .6; }
+        .name-row { display: none; grid-column: 2 / 4; gap: 8px; align-items: center; }
+        .api-card.has-input .name-row { display: flex; }
+        .name-row input { max-width: 260px; }
+        .result-panel { margin-top: 28px; overflow: hidden; }
+        .result-head { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 17px 22px; border-bottom: 1px solid var(--line); }
+        .result-head h2 { margin: 0; font-size: 1rem; }
+        #status { color: var(--muted); font-size: .8rem; }
+        pre { min-height: 180px; margin: 0; padding: 22px; overflow: auto; color: #d9f3ea; background: #172d31; font: .9rem/1.7 Consolas, monospace; }
+        footer { padding: 22px 0 50px; color: var(--muted); font-size: .8rem; }
+        @media (max-width: 760px) {
+            header { padding-top: 30px; padding-bottom: 42px; }
+            .layout { grid-template-columns: 1fr; }
+            .settings { position: static; }
+            .api-card { grid-template-columns: 1fr auto; gap: 10px; }
+            .description { grid-column: 1 / -1; }
+            .name-row { grid-column: 1 / -1; }
+        }
+    </style>
 </head>
 <body>
-    <p>フロントエンド</p>
+    <header class="shell">
+        <p class="eyebrow">CLOUDFLARE PAGES × WORKERS</p>
+        <h1>静的ページから、<br>動くAPIへ。</h1>
+        <p class="lead">Pagesの画面からWorkers APIへリクエストを送り、返ってきたJSONを確認する小さな実験室です。</p>
+    </header>
+
+    <main class="shell layout">
+        <aside class="panel settings">
+            <label for="base-url">WorkerベースURL</label>
+            <input id="base-url" type="url" value="http://127.0.0.1:8787" spellcheck="false">
+            <p class="hint">本番ではデプロイ後の <code>https://...workers.dev</code> に変更してください。</p>
+        </aside>
+
+        <section>
+            <div class="api-list" aria-label="API一覧">
+                <article class="api-card">
+                    <div><div class="method">GET</div><div class="path">/api</div></div>
+                    <p class="description">APIの稼働状況と利用できる入口</p>
+                    <button data-path="/api">実行</button>
+                </article>
+                <article class="api-card has-input">
+                    <div><div class="method">GET</div><div class="path">/api/hello</div></div>
+                    <p class="description">名前を受け取る挨拶</p>
+                    <button data-path="/api/hello">実行</button>
+                    <div class="name-row"><label for="name">name</label><input id="name" value="山田" maxlength="40"></div>
+                </article>
+                <article class="api-card">
+                    <div><div class="method">GET</div><div class="path">/api/course</div></div>
+                    <p class="description">学科紹介のサンプルデータ</p>
+                    <button data-path="/api/course">実行</button>
+                </article>
+                <article class="api-card">
+                    <div><div class="method">GET</div><div class="path">/api/fortune</div></div>
+                    <p class="description">ランダムなおみくじ</p>
+                    <button data-path="/api/fortune">実行</button>
+                </article>
+                <article class="api-card">
+                    <div><div class="method">GET</div><div class="path">/api/events</div></div>
+                    <p class="description">イベント一覧</p>
+                    <button data-path="/api/events">実行</button>
+                </article>
+            </div>
+            <div class="panel result-panel">
+                <div class="result-head"><h2>レスポンス</h2><span id="status">まだ実行していません</span></div>
+                <pre id="result">ここにJSONが表示されます。</pre>
+            </div>
+        </section>
+    </main>
+    <footer class="shell">Frontend: HTML / CSS / JavaScript　 ·　Backend: Cloudflare Workers</footer>
+
+    <script>
+        const baseUrl = document.querySelector("#base-url");
+        const result = document.querySelector("#result");
+        const status = document.querySelector("#status");
+
+        document.querySelectorAll("button[data-path]").forEach((button) => {
+            button.addEventListener("click", async () => {
+                const url = new URL(button.dataset.path, baseUrl.value.trim());
+                if (button.dataset.path === "/api/hello") {
+                    const name = document.querySelector("#name").value.trim();
+                    if (name) url.searchParams.set("name", name);
+                }
+                button.disabled = true;
+                status.textContent = "通信中...";
+                try {
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    status.textContent = `${response.status} ${response.statusText}`;
+                    result.textContent = JSON.stringify(data, null, 2);
+                } catch (error) {
+                    status.textContent = "通信エラー";
+                    result.textContent = JSON.stringify({ error: "Workerに接続できませんでした", detail: error.message }, null, 2);
+                } finally {
+                    button.disabled = false;
+                }
+            });
+        });
+    </script>
 </body>
 </html>
